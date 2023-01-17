@@ -25,13 +25,13 @@ def load_query_set(sc):
                 .text(data_path + 'query_set.csv')
 
     # split the string into an array
-    df2 = df.select(split(col("value"),",").alias("allinfo"))
+    df2 = df.select(F.split(F.col("value"),",").alias("allinfo"))
     # save the first element of the list to a new column (query_id)
     df2 = df2.withColumn('query_id', df2.allinfo[0])
     # save the tail to a new column (query_param)
-    df2 = df2.withColumn("query_param", expr("slice(allinfo, 2, SIZE(allinfo))"))
+    df2 = df2.withColumn("query_param", F.expr("slice(allinfo, 2, SIZE(allinfo))"))
     # create the query_string concatenated with AND and save it in query_string
-    df2 = df2.withColumn("query_string", concat_ws(" AND ",col("query_param")))
+    df2 = df2.withColumn("query_string", F.concat_ws(" AND ",F.col("query_param")))
     df2 = df2.drop("allinfo")
 
     # print(df2.first().query_string)
@@ -61,6 +61,7 @@ def test():
     rs = get_query_result_set_id(sc, query1.query_string, relational_table)
     print(rs.count())
     rs.show()
+
 
 
 if __name__ == "__main__":
