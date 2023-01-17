@@ -52,10 +52,10 @@ def load_query_set(sc):
     # print(df2.first().query_string)
     # df2.printSchema()
     # df2.show()
-
     return df2
 
-def main():
+
+def test():
     sc = init_spark()
     utility_matrix = load_utility_matrix(sc)
     user_set = load_user_set(sc)
@@ -63,11 +63,11 @@ def main():
     query_set = load_query_set(sc)
 
     query1 = query_set.first()
-    relational_table.createOrReplaceTempView("items")
-    sqlDF = sc.sql("SELECT * FROM items WHERE " + query1.query_string)
+    relational_table.createGlobalTempView("items")
+    sqlDF = sc.sql("SELECT * FROM global_temp.items WHERE " + query1.query_string)
     print(sqlDF.count())
     # sqlDF.show()
 
 
 if __name__ == "__main__":
-    main()
+    test()
