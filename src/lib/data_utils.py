@@ -1,43 +1,28 @@
-import pandas as pd
-from pyspark.sql import SparkSession
-from pyspark.context import SparkContext
-from pyspark.sql.functions import *
-import pyspark.sql.types
-from pyspark.sql import Row
-
-def init_spark():
-    sc = SparkSession.builder.appName("data_utils")\
-                             .config("spark.driver.memory", "16g")\
-                             .config("spark.driver.maxResultSize", "4g")\
-                             .config("spark.sql.debug.maxToStringFields", "200")\
-                             .config("spark.sql.execution.arrow.pyspark.enabled", "true")\
-                             .getOrCreate()
-
-    return sc
+from utils import *
 
 def load_relational_table(sc):
     relational_table = sc.read.option("header",True)\
                               .option("inferSchema",True) \
-                              .csv('../../data/relational_table.csv')
+                              .csv(data_path + 'relational_table.csv')
     return relational_table
 
 
 def load_user_set(sc):
     user_set = sc.read.option('lineSep', "\n")\
                       .schema('id STRING')\
-                      .text('../../data/user_set.csv')
+                      .text(data_path + 'user_set.csv')
     return user_set
 
 
 def load_utility_matrix(sc):
     utility_matrix = sc.read.option("header",True)\
-                            .csv("../../data/utility_matrix.csv")
+                            .csv(data_path + "utility_matrix.csv")
     return utility_matrix
 
 
 def load_query_set(sc):
     df = sc.read.option('lineSep', "\n")\
-                .text('../../data/query_set.csv')
+                .text(data_path + 'query_set.csv')
 
     # split the string into an array
     df2 = df.select(split(col("value"),",").alias("allinfo"))
@@ -54,19 +39,28 @@ def load_query_set(sc):
     # df2.show()
     return df2
 
+def get_query_result_set_all(sc, query_string, relational_table):
+    relational_table.createOrReplaceTempView("items")
+    result_set = sc.sql("SELECT * FROM items WHERE " + query_string)
+    return result_set
+
+def get_query_result_set_id(sc, query_string, relational_table):
+    relational_table.createOrReplaceTempView("items")
+    result_set = sc.sql("SELECT business_id FROM items WHERE " + query_string)
+    return result_set
 
 def test():
-    sc = init_spark()
+    sc = init_spark("data_utils")
     utility_matrix = load_utility_matrix(sc)
     user_set = load_user_set(sc)
     relational_table = load_relational_table(sc)
     query_set = load_query_set(sc)
 
+    ## example query
     query1 = query_set.first()
-    relational_table.createGlobalTempView("items")
-    sqlDF = sc.sql("SELECT * FROM global_temp.items WHERE " + query1.query_string)
-    print(sqlDF.count())
-    # sqlDF.show()
+    rs = get_query_result_set_id(sc, query1.query_string, relational_table)
+    print(rs.count())
+    rs.show()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
 /.direnv/
 /.envrc
-/data/
 /shell.nix
+/src/lib/__pycache__/
