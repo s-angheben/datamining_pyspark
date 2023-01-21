@@ -2,7 +2,7 @@ import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.context import SparkContext
 from pyspark.sql import functions as F
-import pyspark.sql.types
+from pyspark.sql.types import *
 from pyspark.sql import Row
 
 

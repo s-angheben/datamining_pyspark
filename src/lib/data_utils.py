@@ -1,10 +1,24 @@
 from utils import *
 import re
+import csv
+
+def load_result_set(sc):
+    result_set_df = sc.read.option("header",True)\
+                           .csv(data_path + 'result_set.csv')
+
+    result_set_df = result_set_df.withColumn(
+        "result_set",
+        F.from_json(F.col("result_set"), "array<integer>")
+    )
+
+    return result_set_df
 
 def load_relational_table(sc):
     relational_table = sc.read.option("header",True)\
-                              .option("inferSchema",True) \
+                              .option("inferSchema",True)\
                               .csv(data_path + 'relational_table.csv')
+
+    relational_table = relational_table.withColumn("index", F.monotonically_increasing_id())
     return relational_table
 
 
@@ -43,7 +57,7 @@ def load_query_set(sc):
     return df2
 
 
-def get_query_result_set_ids(sc, query_string, relational_table):
+def get_query_result_set_index(sc, query_string):
     # add quotes to values between AND
     query_string = re.sub(r'(=)\s*(.*?) AND', r'\1"\2" AND', query_string)
     # add quotes to the last value
@@ -52,14 +66,24 @@ def get_query_result_set_ids(sc, query_string, relational_table):
     last_value = '"' + last_value + '"'
     tmp.append(last_value)
     query_string = "=".join(tmp)
-    print(query_string)
 
-    relational_table.createOrReplaceTempView("items")
-    result_set = sc.sql("SELECT * FROM items WHERE " + query_string)
+    result_set = sc.sql("SELECT index FROM items WHERE " + query_string)
 
     return result_set
 
+def save_result_set_dataframe(sc, query_set):
+    # i = query_set.count()
+    with open(data_path + "result_set.csv", "w") as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        writer.writerow(('query_id', 'result_set'))
+        for q in query_set.rdd.toLocalIterator():
+            # print(i)
+            # i -= 1
+            query_result_set = get_query_result_set_index(sc, q.query_string)
 
+            query_result_set_list = query_result_set.select('index').rdd.flatMap(lambda x: x).collect()
+            line = (q.query_id, query_result_set_list)
+            writer.writerow(line)
 
 def test():
     sc = init_spark("data_utils")
@@ -67,6 +91,7 @@ def test():
     user_set = load_user_set(sc)
     relational_table = load_relational_table(sc)
     query_set = load_query_set(sc)
+    relational_table.createOrReplaceTempView("items")
 
     ## example query
     query1 = query_set.first()
