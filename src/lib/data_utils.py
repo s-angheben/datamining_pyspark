@@ -2,9 +2,10 @@ from utils import *
 import re
 import csv
 
-def load_result_set(sc):
-    result_set_df = sc.read.option("header",True)\
-                           .csv(data_path + 'result_set.csv')
+
+def load_result_set(sc, fname='result_set.csv'):
+    result_set_df = sc.read.option("header", True) \
+        .csv(data_path + fname)
 
     result_set_df = result_set_df.withColumn(
         "result_set",
@@ -13,35 +14,34 @@ def load_result_set(sc):
 
     return result_set_df
 
-def load_relational_table(sc):
-    relational_table = sc.read.option("header",True)\
-                              .option("inferSchema",True)\
-                              .csv(data_path + 'relational_table.csv')
+
+def load_relational_table(sc, fname='relational_table.csv'):
+    relational_table = sc.read.option("header", True) \
+        .option("inferSchema", True) \
+        .csv(data_path + fname)
 
     relational_table = relational_table.withColumn("index", F.monotonically_increasing_id())
     return relational_table
 
 
-def load_user_set(sc):
-    user_set = sc.read.option('lineSep', "\n")\
-                      .schema('id STRING')\
-                      .text(data_path + 'user_set.csv')
+def load_user_set(sc, fname='user_set.csv'):
+    user_set = sc.read.option('lineSep', "\n") \
+        .schema('id STRING') \
+        .text(data_path + fname)
     return user_set
 
 
-def load_utility_matrix(sc):
-    utility_matrix = sc.read.option("header",True)\
-                            .csv(data_path + "utility_matrix.csv")
+def load_utility_matrix(sc, fname="utility_matrix.csv"):
+    utility_matrix = sc.read.option("header", True) \
+        .csv(data_path + fname)
     return utility_matrix
 
 
 def utility_matrix_create_array(df):
-
     ut = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
 
     # Function defined by user, to calculate distance between two points on the globe.
     def do_norm(ratings_):
-
         rated = [int(r) for r in filter(lambda rate: rate is not None, ratings_)]
         # print(rated)
         total = sum(rated)
@@ -62,25 +62,24 @@ def utility_matrix_create_array(df):
     # Adding monotonically increasing index
     ut = ut.withColumn("index", F.monotonically_increasing_id())
 
-    print(ut.first())
-    ut.printSchema()
+    # print(ut.first())
+    # ut.printSchema()
 
     return ut
 
 
-def load_query_set(sc):
-    df = sc.read.option('lineSep', "\n")\
-                .text(data_path + 'query_set.csv')
+def load_query_set(sc, fname='query_set.csv'):
+    df = sc.read.option('lineSep', "\n") \
+        .text(data_path + fname)
 
     # split the string into an array
-    df2 = df.select(F.split(F.col("value"),",").alias("allinfo"))
+    df2 = df.select(F.split(F.col("value"), ",").alias("allinfo"))
     # save the first element of the list to a new column (query_id)
     df2 = df2.withColumn('query_id', df2.allinfo[0])
     # save the tail to a new column (query_param)
     df2 = df2.withColumn("query_param", F.expr("slice(allinfo, 2, SIZE(allinfo))"))
     # create the query_string concatenated with AND and save it in query_string
-    df2 = df2.withColumn("query_string", F.concat_ws(" AND ",F.col("query_param")))
-
+    df2 = df2.withColumn("query_string", F.concat_ws(" AND ", F.col("query_param")))
 
     df2 = df2.drop("allinfo")
 
@@ -88,6 +87,7 @@ def load_query_set(sc):
     # df2.printSchema()
     # df2.show()
     return df2
+
 
 def get_query_result_set_id(sc, query_string):
     # add quotes to values between AND
@@ -118,9 +118,10 @@ def get_query_result_set_index(sc, query_string):
 
     return result_set
 
-def save_result_set_dataframe(sc, query_set):
+
+def save_result_set_dataframe(sc, query_set, fname="result_set.csv"):
     # i = query_set.count()
-    with open(data_path + "result_set.csv", "w") as csv_file:
+    with open(data_path + fname, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(('query_id', 'result_set'))
         for q in query_set.rdd.toLocalIterator():
@@ -132,6 +133,7 @@ def save_result_set_dataframe(sc, query_set):
             line = (q.query_id, query_result_set_list)
             writer.writerow(line)
 
+
 def test():
     sc = init_spark("data_utils")
     utility_matrix = load_utility_matrix(sc)
@@ -142,11 +144,10 @@ def test():
 
     ## example query
     query1 = query_set.first()
-    rs = get_query_result_set_ids(sc, query1, relational_table)
+    rs = get_query_result_set_index(sc, query1, relational_table)
     print(type(rs.collect()))
     print(rs.count())
     rs.show()
-
 
 
 if __name__ == "__main__":
