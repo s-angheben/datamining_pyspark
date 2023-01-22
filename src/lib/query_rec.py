@@ -2,7 +2,7 @@ from collaborative_filtering import approx_nearest_neighbors, prepare_model
 from content_based_filtering import item_item_prepare_model, item_item_approx_nearest_neighbors
 from data_utils import *
 from utils import init_spark, end_session
-
+from functools import reduce
 
 def get_neighbors(df, model, uid):
     user_key = df.where(F.col("user_id") == uid).first()
@@ -39,6 +39,14 @@ def get_similar_items(df, model, query_id):
     num_similar = 20
     similar_items = item_item_approx_nearest_neighbors(model, df, query_key, num_similar)
     return similar_items
+
+def dropNullColumns(df):
+    null_counts = df.select([F.count(F.when(F.col(c).isNull(), c)).alias(
+        c) for c in df.columns]).collect()[0].asDict()  # 1
+    col_to_drop = [k for k, v in null_counts.items() if v > 0]  # 2
+    df = df.drop(*col_to_drop)  # 3
+
+    return df
 
 def query_recommendation():
     # Init spark session
@@ -95,6 +103,7 @@ def query_recommendation():
                 rs_value = ut.where(F.col("user_id") == uid).select(F.col(qid))
                 value = rs_value.collect()[0][0]
 
+
                 if value is not None and value != '':
                     row.append(value)
                 else:
@@ -109,14 +118,27 @@ def query_recommendation():
 
                         # calculate the average of the similar users rating for each query
                         rsv = ut.join(neighbors_ids_df, 'user_id').select(*[F.avg(c).alias(c) for c in similar_query_set])
-                        # average the average of each query
-                        # rsv.select('Result(Avg)', )
 
-                        # rsv = ut.join(neighbors_ids_df, 'user_id').select(F.avg(F.col(q.query_id)))
-                        rsv.show()
-                        average_value = int(rsv.collect()[0][0])
-                    except TypeError:
+                        # average the average of each query
+                        q_dict = rsv.first().asDict()
+
+
+                        not_null_query_avg = 0
+                        sum_query_avg = 0
+                        for q_avg in q_dict.values():
+                            if q_avg != None:
+                                sum_query_avg += int(q_avg)
+                                not_null_query_avg += 1
+
+
+                        average_value = int(sum_query_avg / not_null_query_avg)
+                        print(average_value)
+
+                    except Exception as e: print(e)
+
+                    except:
                         # Foo value in order to spot easily missing values
+                        print("error")
                         average_value = 999
 
                     row.append(average_value)
