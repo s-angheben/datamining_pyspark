@@ -47,18 +47,17 @@ def test():
     rs = load_result_set(sc)
     rs = add_result_set_vector_format(sc, rs, item_size)
 
-    q1 = rs.first().result_set_vector
+    q1 = rs.collect()[1].result_set_vector
     print(q1)
 
+    rs_hashed, model = add_minhash_to_result_set(sc, rs)
 
-    # rs, model = add_minhash_to_result_set(sc, rs)
-    a = rs.filter(F.size(F.col("result_set")) < 1).count()
-    print(a)
-    # model.approxNearestNeighbors(rs, q1, 1).collect()
+    db_matches = model.approxSimilarityJoin(rs_hashed, rs_hashed, 0.9)
 
-    # # print(rs.first())
+    print(db_matches.first())
+    # result = model.approxNearestNeighbors(rs, q1, 2).collect()
+    # print(result)
 
-    # relational_table.printSchema()
 
 
 

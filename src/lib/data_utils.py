@@ -56,6 +56,20 @@ def load_query_set(sc):
     # df2.show()
     return df2
 
+def get_query_result_set_id(sc, query_string):
+    # add quotes to values between AND
+    query_string = re.sub(r'(=)\s*(.*?) AND', r'\1"\2" AND', query_string)
+    # add quotes to the last value
+    tmp = query_string.split("=")
+    last_value = tmp.pop()
+    last_value = '"' + last_value + '"'
+    tmp.append(last_value)
+    query_string = "=".join(tmp)
+
+    result_set = sc.sql("SELECT business_id FROM items WHERE " + query_string)
+
+    return result_set
+
 
 def get_query_result_set_index(sc, query_string):
     # add quotes to values between AND

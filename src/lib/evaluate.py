@@ -17,7 +17,7 @@ def load_top_reviews_full_matrix(sc):
 def get_true_query_rating(sc, queryRow, user_id, relational_table, top_reviews):
     # business_user.createOrReplaceTempView("topreviews")
 
-    rs = get_query_result_set_id(sc, queryRow.query_string, relational_table)
+    rs = get_query_result_set_id(sc, queryRow.query_string)
 
     business_id_list = rs.rdd.map(lambda x: x.business_id).collect()
 
@@ -27,9 +27,9 @@ def get_true_query_rating(sc, queryRow, user_id, relational_table, top_reviews):
     rating_count = subset.count()
     rating_sum = subset.select(F.sum(subset.rating)).collect()[0][0]
 
-    true_rating = math.floor(float(rating_sum) * 100.0 / (rating_count * 5.0))
+    true_rating = round(float(rating_sum) * 100.0 / (rating_count * 5.0))
     if true_rating > 100:
-        true_rating = 100.0
+        true_rating = 100
 
     return true_rating
 
@@ -59,6 +59,8 @@ def test():
     rt = load_relational_table(sc)
     tr = load_top_reviews_full_matrix(sc)
     ut = load_utility_matrix(sc)
+    rt.createOrReplaceTempView("items")
+
     # bu.printSchema()
 
     print(check_consistency_rating(sc, ut, rt, tr))
