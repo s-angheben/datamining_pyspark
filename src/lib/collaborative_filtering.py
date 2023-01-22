@@ -11,8 +11,8 @@ def add_ratings_vector_format(sc, result_set_df, item_size):
 
     def f(result_set_indexes, rs_size):
         # TODO: sparse --> dense
-        # v = Vectors.dense(result_set_indexes[1:])
-        v = Vectors.sparse(b_size.value, result_set_indexes, [1] * rs_size)
+        v = Vectors.dense(result_set_indexes)
+        # v = Vectors.sparse(b_size.value, result_set_indexes, [1] * rs_size)
         return v
 
     new_f = F.udf(f, VectorUDT())
@@ -29,12 +29,12 @@ def do_collaborative_filtering():
     sc = init_spark("collaborative-filtering")
     utility_matrix = load_utility_matrix(sc)
     ut = utility_matrix_create_array(utility_matrix)
-
-    print(ut.head())
+    # print(ut.head())
 
     item_size = ut.count()
 
     rs = add_ratings_vector_format(sc, ut, item_size)
+    # print(rs.head())
 
     q1 = rs.first().ratings_vector
     # print(q1)
@@ -42,11 +42,11 @@ def do_collaborative_filtering():
     # TODO: add ratings column to the dataframe
     brp = BucketedRandomProjectionLSH(inputCol="ratings_vector", outputCol="hashes", bucketLength=2.0,
                                       numHashTables=3)
-    model = brp.fit(ut)
+    model = brp.fit(rs)
 
     # Feature Transformation
     print("The hashed dataset where hashed values are stored in the column 'hashes':")
-    model.transform(ut).show()
+    model.transform(rs).show()
 
     # Compute the locality sensitive hashes for the input rows, then perform approximate nearest
     # neighbor search.

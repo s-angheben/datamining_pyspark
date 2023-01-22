@@ -37,7 +37,7 @@ def load_utility_matrix(sc):
 
 def utility_matrix_create_array(df):
 
-    df2 = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
+    ut = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
 
     # Function defined by user, to calculate distance between two points on the globe.
     def do_norm(ratings_):
@@ -57,7 +57,10 @@ def utility_matrix_create_array(df):
 
     # Creating a 'User Defined Function' to normalize ratings
     udf_func = F.udf(do_norm, ArrayType(FloatType()))
-    ut = df2.withColumn("norm_ratings", udf_func(df2.ratings))
+    ut = ut.withColumn("norm_ratings", udf_func(ut.ratings))
+
+    # Adding monotonically increasing index
+    ut = ut.withColumn("index", F.monotonically_increasing_id())
 
     print(ut.first())
     ut.printSchema()
