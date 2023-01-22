@@ -2,3 +2,4 @@
 /.envrc
 /shell.nix
 /src/lib/__pycache__/
+.idea
