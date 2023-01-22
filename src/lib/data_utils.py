@@ -35,6 +35,36 @@ def load_utility_matrix(sc):
     return utility_matrix
 
 
+def utility_matrix_create_array(df):
+
+    df2 = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
+
+    # Function defined by user, to calculate distance between two points on the globe.
+    def do_norm(ratings_):
+
+        rated = [int(r) for r in filter(lambda rate: rate is not None, ratings_)]
+        # print(rated)
+        total = sum(rated)
+        # print(total)
+
+        average_rate = total / (1.0 * len(rated))
+        # print('Average rate', average_rate)
+
+        norm_ratings = [(int(r) - average_rate) if r is not None else float(0) for r in ratings_]
+        # print(norm_ratings)
+
+        return norm_ratings
+
+    # Creating a 'User Defined Function' to normalize ratings
+    udf_func = F.udf(do_norm, ArrayType(FloatType()))
+    ut = df2.withColumn("norm_ratings", udf_func(df2.ratings))
+
+    print(ut.first())
+    ut.printSchema()
+
+    return ut
+
+
 def load_query_set(sc):
     df = sc.read.option('lineSep', "\n")\
                 .text(data_path + 'query_set.csv')
