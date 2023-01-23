@@ -14,6 +14,7 @@ def init_spark(name):
         .config("spark.driver.maxResultSize", "4g") \
         .config("spark.sql.debug.maxToStringFields", "200") \
         .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
+        .config("spark.sql.files.minPartitionNum", 4)\
         .getOrCreate()
 
     return sc

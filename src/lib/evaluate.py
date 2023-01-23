@@ -35,6 +35,9 @@ def get_true_query_rating(sc, queryRow, user_id, relational_table, top_reviews):
 
 
 
+
+
+
 ## calculate the true_query_rating on a query and user for which we already
 ## have the rating in the utility_matrix
 ## check if we get the same result
@@ -56,16 +59,18 @@ def check_consistency_rating(sc, ut, rt, tr):
 
 def test():
     sc = init_spark("evaluation")
-    rt = load_relational_table(sc)
-    tr = load_top_reviews_full_matrix(sc)
-    ut = load_utility_matrix(sc)
-    rt.createOrReplaceTempView("items")
+    # rt = load_relational_table(sc)
+    # tr = load_top_reviews_full_matrix(sc)
+    # ut = load_utility_matrix(sc)
+    # rt.createOrReplaceTempView("items")
 
-    # bu.printSchema()
+    # # bu.printSchema()
 
-    print(check_consistency_rating(sc, ut, rt, tr))
+    # print(check_consistency_rating(sc, ut, rt, tr))
 
-
+    df = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted")
+    df.printSchema()
+    print(df.count())
 
 
 if __name__ == "__main__":

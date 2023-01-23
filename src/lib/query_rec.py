@@ -72,88 +72,98 @@ def query_recommendation():
     # user-user model
     model, df = prepare_model(ut)
 
+    # repartition in 4, to parallelize
+    df = df.repartition(4)
+    print(df.rdd.getNumPartitions())
+
+    # df.printSchema()
+    calculated_similar_user = model.approxSimilarityJoin(
+        df,
+        df,
+        50,
+        "EuclideanDistance").select(F.col("datasetA.user_id").alias("user_id"),
+                                    F.col("datasetB.user_id").alias("user_id_sim"),
+                                    F.col("EuclideanDistance")).cache()
+
+    # calculated_similar_user.select(F.max(F.col("EuclideanDistance")), F.min(F.col("EuclideanDistance")), F.avg(F.col("EuclideanDistance"))).show()
+    # print(calculated_similar_user.count())
+    # print(calculated_similar_user.first())
+    # exit(1)
+
     # item-item model
     item_size = relational_table.count()
     item_item_model, hashed_result_set = item_item_prepare_model(sc, item_size, result_set)
 
-    with open(data_path + 'utility_matrix_filled.csv', 'w') as f_out:
-        writer = csv.writer(f_out, delimiter=',')
-        writer.writerow(ut.columns)
 
-        # Iterate over all users and all queries in order to fulfill the utility matrix
-        count_users = 0
-        for u in user_set.rdd.toLocalIterator():
-
-            uid = u.id
-
-            # Retrieve similar users
-            neighbors_ids_df = get_neighbors(df, model, uid)
-            # print(neighbors_ids)
-            # neighbors_ids_df = sc.createDataFrame(neighbors_ids)
-
-            # Row to be printed out to the csv file, one per user
-            row = [uid]
-
-            # Iterate over queries
-            for q in query_set.rdd.toLocalIterator():
-
-                qid = q.query_id
-
-                # Lookup into the dataframe for the rating (if any) given by user  u.id to query q.query_id
-                rs_value = ut.where(F.col("user_id") == uid).select(F.col(qid))
-                value = rs_value.collect()[0][0]
+    calculated_similar_item = item_item_model.approxSimilarityJoin(
+        hashed_result_set,
+        hashed_result_set,
+        0.2,
+        "JaccardDistance").select(F.col("datasetA.query_id").alias("query_id"),
+                                  F.col("datasetB.query_id").alias("query_id_sim"),
+                                  F.col("JaccardDistance")).cache()
 
 
-                if value is not None and value != '':
-                    row.append(value)
-                else:
-                    # Recommendation by retrieving neighbors' ratings for query_id, computing the average
+    # query_user_to_predict = query_set.crossJoin(user_set.select("id"))\
+    #                                  .select(F.col("query_id"), F.col("id").alias("user_id"))\
+    #                                  .cache()
 
-                    # Deprecated
-                    # average_value = get_avg_value_neighbors(neighbors_ids, qid, ut)
+    print("SIMILAR CALCULATED")
 
-                    try:
-                        similar_query_id = get_similar_items(hashed_result_set, item_item_model, qid)
-                        similar_query_set = similar_query_id.select("query_id").rdd.flatMap(lambda x: x).collect()
+    query_id_list = set(ut.columns) - {"user_id"}
+    b_query_id_list = sc.sparkContext.broadcast(query_id_list)
 
-                        # calculate the average of the similar users rating for each query
-                        rsv = ut.join(neighbors_ids_df, 'user_id').select(*[F.avg(c).alias(c) for c in similar_query_set])
+    def fun(x):
+        out_put_list = []
+        for q in b_query_id_list.value:
+            if x[q] == None:
+                out_put_list.append({
+                    "user_id" : x["user_id"],
+                    "query_id": q,
+                    # "rating"  : x[q]
+                })
+        return out_put_list
 
-                        # average the average of each query
-                        q_dict = rsv.first().asDict()
+    user_query_to_predict_rdd = ut.rdd.flatMap(lambda x: fun(x))
+    user_query_to_predict = sc.createDataFrame(user_query_to_predict_rdd)
+    # user_query_to_predict.printSchema()
+    # print(user_query_to_predict.first())
 
 
-                        not_null_query_avg = 0
-                        sum_query_avg = 0
-                        for q_avg in q_dict.values():
-                            if q_avg != None:
-                                sum_query_avg += int(q_avg)
-                                not_null_query_avg += 1
+    def fun2(x):
+        out_put_list = []
+        for q in b_query_id_list.value:
+            if x[q] != None:
+                out_put_list.append({
+                    "user_id" : x["user_id"],
+                    "query_id": q,
+                    "rating"  : x[q]
+                })
+        return out_put_list
 
+    user_query_rated_rdd = ut.rdd.flatMap(lambda x: fun2(x))
+    user_query_rated = sc.createDataFrame(user_query_rated_rdd)
 
-                        average_value = int(sum_query_avg / not_null_query_avg)
-                        print(average_value)
+    print("START PREDICTION")
 
-                    except Exception as e: print(e)
+    predicted = user_query_to_predict.join(calculated_similar_user, 'user_id')\
+                                     .join(calculated_similar_item, 'query_id')\
+                                     .cache()
 
-                    except:
-                        # Foo value in order to spot easily missing values
-                        print("error")
-                        average_value = 999
+    predicted = predicted.join(user_query_rated,
+        (predicted["user_id_sim"]  == user_query_rated["user_id"]) &
+        (predicted["query_id_sim"] == user_query_rated["query_id"])
+                               )\
+                         .select(predicted["user_id"], predicted["query_id"], F.col("rating"))\
+                         .groupBy(F.col("query_id"), F.col("user_id"))\
+                         .agg(F.avg(F.col("rating")).alias("predicted_rating"))
 
-                    row.append(average_value)
+    predicted.printSchema()
 
-            # Print out row to csv file
-            writer.writerow(row)
+    print(predicted.count())
+    predicted.write.options(header='True', delimiter=',') \
+                   .csv(data_path + "predicted")
 
-            # Keep track of how many users have been processed
-            count_users += 1
-            print(count_users)
-
-            if count_users % 10 == 0:
-                print('Processed {} users'.format(count_users))
-
-    # print(utility_matrix.head())
 
     # End spark session
     end_session(sc)
