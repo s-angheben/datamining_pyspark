@@ -42,7 +42,7 @@ def utility_matrix_create_array(df):
 
     # Function defined by user, to calculate distance between two points on the globe.
     def do_norm(ratings_):
-        rated = [int(r) for r in filter(lambda rate: rate is not None, ratings_)]
+        rated = [int(float(r)) for r in filter(lambda rate: rate is not None, ratings_)]
         # print(rated)
         total = sum(rated)
         # print(total)
@@ -50,7 +50,7 @@ def utility_matrix_create_array(df):
         average_rate = total / (1.0 * len(rated))
         # print('Average rate', average_rate)
 
-        norm_ratings = [(int(r) - average_rate) if r is not None else float(0) for r in ratings_]
+        norm_ratings = [(int(float(r)) - average_rate) if r is not None else float(0) for r in ratings_]
         # print(norm_ratings)
 
         return norm_ratings

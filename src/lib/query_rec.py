@@ -83,7 +83,7 @@ def query_recommendation():
         50,
         "EuclideanDistance").select(F.col("datasetA.user_id").alias("user_id"),
                                     F.col("datasetB.user_id").alias("user_id_sim"),
-                                    F.col("EuclideanDistance")).cache()
+                                    F.col("EuclideanDistance"))
 
     # calculated_similar_user.select(F.max(F.col("EuclideanDistance")), F.min(F.col("EuclideanDistance")), F.avg(F.col("EuclideanDistance"))).show()
     # print(calculated_similar_user.count())
@@ -101,7 +101,7 @@ def query_recommendation():
         0.2,
         "JaccardDistance").select(F.col("datasetA.query_id").alias("query_id"),
                                   F.col("datasetB.query_id").alias("query_id_sim"),
-                                  F.col("JaccardDistance")).cache()
+                                  F.col("JaccardDistance"))
 
 
     # query_user_to_predict = query_set.crossJoin(user_set.select("id"))\
@@ -146,23 +146,153 @@ def query_recommendation():
 
     print("START PREDICTION")
 
-    predicted = user_query_to_predict.join(calculated_similar_user, 'user_id')\
-                                     .join(calculated_similar_item, 'query_id')\
-                                     .cache()
+    # predicted = user_query_to_predict.join(calculated_similar_user, 'user_id')\
+    #                                  .join(calculated_similar_item, 'query_id')\
+    #                                  .cache()
 
-    predicted = predicted.join(user_query_rated,
-        (predicted["user_id_sim"]  == user_query_rated["user_id"]) &
-        (predicted["query_id_sim"] == user_query_rated["query_id"])
-                               )\
-                         .select(predicted["user_id"], predicted["query_id"], F.col("rating"))\
-                         .groupBy(F.col("query_id"), F.col("user_id"))\
-                         .agg(F.avg(F.col("rating")).alias("predicted_rating"))
+    # predicted = predicted.join(user_query_rated,
+    #     (predicted["user_id_sim"]  == user_query_rated["user_id"]) &
+    #     (predicted["query_id_sim"] == user_query_rated["query_id"])
+    #                            )\
+    #                      .select(predicted["user_id"], predicted["query_id"], F.col("rating"))\
+    #                      .groupBy(F.col("query_id"), F.col("user_id"))\
+    #                      .agg(F.avg(F.col("rating")).alias("predicted_rating"))
+
+    # predicted.printSchema()
+
+    # print(predicted.count())
+    # predicted.write.options(header='True', delimiter=',') \
+    #                .csv(data_path + "predicted")
+
+
+
+    ## STEP 2 RUN 2 TIMES
+    # predicted = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted")
+    # predicted = predicted.union(predicted2)
+
+    # # query_id_list = set(ut.columns) - {"user_id"}
+    # new_ut = predicted.groupBy(F.col("user_id")).pivot("query_id").avg("predicted_rating")
+    # new_ut = new_ut.repartition(8)
+
+
+    # ut = ut.alias("ut")
+    # new_ut = new_ut.alias("new_ut")
+
+    # ut = ut.join(new_ut, "user_id", how='left')
+    # ut = ut.repartition(20)
+
+    # # ut.printSchema()
+    # query_id_list = list(set(ut.columns) - {"user_id"})
+
+    # ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+
+
+    # user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
+    # # print(user_query_to_predict.count())
+    # user_query_rated = user_query_rated.union(predicted.withColumnRenamed("predicted_rating", "rating"))
+
+
+    # model, df = prepare_model(ut)
+
+    # # repartition in 4, to parallelize
+    # df = df.repartition(4)
+
+    # # df.printSchema()
+    # calculated_similar_user = model.approxSimilarityJoin(
+    #     df,
+    #     df,
+    #     100,#STEP 2 100, #STEP2 250
+    #     "EuclideanDistance").select(F.col("datasetA.user_id").alias("user_id"),
+    #                                 F.col("datasetB.user_id").alias("user_id_sim"),
+    #                                 F.col("EuclideanDistance"))
+
+
+
+    # predicted = user_query_to_predict.join(calculated_similar_user, 'user_id')\
+    #                                  .join(calculated_similar_item, 'query_id')
+
+
+    # predicted = predicted.join(user_query_rated,
+    #     (predicted["user_id_sim"]  == user_query_rated["user_id"]) &
+    #     (predicted["query_id_sim"] == user_query_rated["query_id"])
+    #                            )\
+    #                      .select(predicted["user_id"], predicted["query_id"], F.col("rating"))\
+    #                      .groupBy(F.col("query_id"), F.col("user_id"))\
+    #                      .agg(F.avg(F.col("rating")).alias("predicted_rating"))
+
+
+    # print(predicted.count())
+    # predicted.write.options(header='True', delimiter=',') \
+    #                .csv(data_path + "predicted2")
+
+
+    ## STEP 3 fill the remainer with the mean
+    # predicted = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted")
+    # predicted2 = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted2")
+    # predicted = predicted.union(predicted2)
+
+    # user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
+
+    # user_query_rated = user_query_rated.union(predicted.withColumnRenamed("predicted_rating", "rating"))
+
+
+    # user_query_rated = user_query_rated.groupBy(F.col("user_id")).agg(F.avg(F.col("rating")).alias("predicted_rating")).drop("query_id")
+
+    # user_query_predicted = user_query_to_predict.join(user_query_rated,
+    #                                                   "user_id",
+    #                                                   "left"
+    #                                                   ).select(
+    #                                                       user_query_to_predict["user_id"].alias("user_id"),
+    #                                                       user_query_to_predict["query_id"].alias("query_id"),
+    #                                                       user_query_rated["predicted_rating"].alias("predicted_rating")
+    #                                                   )
+
+    # # user_query_predicted = user_query_to_predict.withColumn("predicted_rating", F.lit("75"))
+
+
+    # user_query_predicted.write.options(header='True', delimiter=',') \
+    #                           .csv(data_path + "predicted3")
+
+
+
+    ## STEP4
+    # predicted = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted")
+    # predicted2 = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted2")
+    # predicted3 = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted3")
+    # predicted = predicted.union(predicted2).union(predicted3)
+    # predicted = predicted.cache()
+
+    # for ALS
+    predicted = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted_ALS")
+    predicted = predicted.drop("user_id_index", "query_id_index").withColumnRenamed("prediction", "predicted_rating")
 
     predicted.printSchema()
+    new_ut = predicted.groupBy(F.col("user_id")).pivot("query_id").avg("predicted_rating")
 
-    print(predicted.count())
-    predicted.write.options(header='True', delimiter=',') \
-                   .csv(data_path + "predicted")
+    new_ut = new_ut.repartition(8)
+
+    query_id_list = list(set(ut.columns) - {"user_id"})
+
+    ut = ut.alias("ut")
+    new_ut = new_ut.alias("new_ut")
+
+    ut = ut.join(new_ut, "user_id", how='left')
+    ut = ut.repartition(20)
+
+    # ut.printSchema()
+
+    ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+
+    user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
+    print(user_query_to_predict.count())
+    print(user_query_to_predict.first())
+
+    with open(data_path + 'utility_matrix_filled_ALS.csv', 'w') as f_out:
+        writer = csv.writer(f_out, delimiter=',')
+        writer.writerow(ut.columns)
+
+        for row in ut.rdd.toLocalIterator():
+            writer.writerow(row)
 
 
     # End spark session

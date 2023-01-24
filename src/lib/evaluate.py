@@ -68,7 +68,7 @@ def test():
 
     # print(check_consistency_rating(sc, ut, rt, tr))
 
-    df = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted")
+    df = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted_3")
     df.printSchema()
     print(df.count())
 
