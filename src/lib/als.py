@@ -8,9 +8,6 @@ from pyspark.ml import Pipeline
 from pyspark.ml.evaluation import RegressionEvaluator
 
 
-
-
-
 def als():
     sc = init_spark("query_recommendation")
     ut = load_utility_matrix(sc)

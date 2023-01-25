@@ -4,6 +4,13 @@ import csv
 
 
 def load_result_set(sc, fname='result_set.csv'):
+    """
+    Load the list result sets (the returned rows' ids for each query in the queries set) into a DataFrame
+
+    :param sc: the Spark Context
+    :param fname: name of the csv file containing the result sets
+    :return: the DataFrame
+    """
     result_set_df = sc.read.option("header", True) \
         .csv(data_path + fname)
 
@@ -16,6 +23,13 @@ def load_result_set(sc, fname='result_set.csv'):
 
 
 def load_relational_table(sc, fname='relational_table.csv'):
+    """
+    Load the relational table into a DataFrame
+
+    :param sc: the Spark Context
+    :param fname: name of the csv file containing the relational table
+    :return: the DataFrame
+    """
     relational_table = sc.read.option("header", True) \
         .option("inferSchema", True) \
         .csv(data_path + fname)
@@ -25,6 +39,13 @@ def load_relational_table(sc, fname='relational_table.csv'):
 
 
 def load_user_set(sc, fname='user_set.csv'):
+    """
+    Load the users set into a DataFrame
+
+    :param sc: the Spark Context
+    :param fname: name of the csv file containing the users set
+    :return: the DataFrame
+    """
     user_set = sc.read.option('lineSep', "\n") \
         .schema('id STRING') \
         .text(data_path + fname)
@@ -32,12 +53,29 @@ def load_user_set(sc, fname='user_set.csv'):
 
 
 def load_utility_matrix(sc, fname="utility_matrix.csv"):
+    """
+    Load original utility matrix, provided as a csv file, into a DataFrame
+
+    :param sc: the Spark Context
+    :param fname: name of the csv file containing the utility matrix
+    :return: the DataFrame
+    """
     utility_matrix = sc.read.option("header", True) \
         .csv(data_path + fname)
     return utility_matrix
 
 
 def utility_matrix_create_array(df):
+    """
+    Create a new DataFrame, derived from a previous one already containing the utility matrix,
+    with a column contaning the list of ratings for a user, plus another with
+    the normalized ratings for the same user
+
+    :param df: DataFrame with the original utility matrix
+    :return: the DataFrame
+    """
+
+    # select the user_id columns and add a new one called ratings
     ut = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
 
     # Function defined by user, to calculate distance between two points on the globe.
@@ -57,6 +95,7 @@ def utility_matrix_create_array(df):
 
     # Creating a 'User Defined Function' to normalize ratings
     udf_func = F.udf(do_norm, ArrayType(FloatType()))
+    # Add the column with the normalized ratings to the DataFrame
     ut = ut.withColumn("norm_ratings", udf_func(ut.ratings))
 
     # Adding monotonically increasing index
@@ -69,6 +108,13 @@ def utility_matrix_create_array(df):
 
 
 def load_query_set(sc, fname='query_set.csv'):
+    """
+    Load the queries set into a DataFrame
+
+    :param sc: the Spark Context
+    :param fname: name of the csv file containing the queries set
+    :return: the DataFrame
+    """
     df = sc.read.option('lineSep', "\n") \
         .text(data_path + fname)
 
@@ -78,9 +124,10 @@ def load_query_set(sc, fname='query_set.csv'):
     df2 = df2.withColumn('query_id', df2.allinfo[0])
     # save the tail to a new column (query_param)
     df2 = df2.withColumn("query_param", F.expr("slice(allinfo, 2, SIZE(allinfo))"))
-    # create the query_string concatenated with AND and save it in query_string
+    # create the query_string concatenated with AND condition and save it in query_string
     df2 = df2.withColumn("query_string", F.concat_ws(" AND ", F.col("query_param")))
 
+    # Drop unused column
     df2 = df2.drop("allinfo")
 
     # print(df2.first().query_string)

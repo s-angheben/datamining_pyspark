@@ -29,11 +29,9 @@ def query_recommendation():
     # load already calculated result set
     result_set = load_result_set(sc)
 
-
     # item-item model
     item_size = relational_table.count()
     item_item_model, hashed_result_set = item_item_prepare_model(sc, item_size, result_set)
-
 
     calculated_similar_item = item_item_model.approxSimilarityJoin(
         hashed_result_set,
@@ -43,8 +41,6 @@ def query_recommendation():
                                   F.col("datasetB.query_id").alias("query_id_sim"),
                                   F.col("JaccardDistance"))
 
-
-
     # extract user_query_to_predict
     query_id_list = set(ut.columns) - {"user_id"}
     b_query_id_list = sc.sparkContext.broadcast(query_id_list)
@@ -52,9 +48,9 @@ def query_recommendation():
     def fun(x):
         out_put_list = []
         for q in b_query_id_list.value:
-            if x[q] == None:
+            if x[q] is None:
                 out_put_list.append({
-                    "user_id" : x["user_id"],
+                    "user_id": x["user_id"],
                     "query_id": q,
                     # "rating"  : x[q]
                 })
@@ -63,51 +59,54 @@ def query_recommendation():
     user_query_to_predict_rdd = ut.rdd.flatMap(lambda x: fun(x))
     user_query_to_predict = sc.createDataFrame(user_query_to_predict_rdd)
 
-
     # extract user_query rated
     def fun2(x):
         out_put_list = []
         for q in b_query_id_list.value:
-            if x[q] != None:
+            if x[q] is not None:
                 out_put_list.append({
-                    "user_id" : x["user_id"],
+                    "user_id": x["user_id"],
                     "query_id": q,
-                    "rating"  : x[q]
+                    "rating": x[q]
                 })
         return out_put_list
 
     user_query_rated_rdd = ut.rdd.flatMap(lambda x: fun2(x))
     user_query_rated = sc.createDataFrame(user_query_rated_rdd)
 
-
     maxloop = 2;
-    while(user_query_to_predict.count() != 0 or maxloop == 0):
+    while user_query_to_predict.count() != 0 or maxloop == 0:
 
-        # user-user model based on the utility matrix
+        # collaborative filtering approach:
+        # user-user model based on the utility matrix using
         user_user_model, hashed_ut = prepare_model(ut)
 
-
+        # Compute similar users applying a Euclidean distance
+        # the distance between vectors that have fallen into at least on of the hash buckets,
+        # making them likely to be close to each other
+        distance = 50
         calculated_similar_user = user_user_model.approxSimilarityJoin(
             hashed_ut,
             hashed_ut,
-            50,
+            distance,
             "EuclideanDistance").select(F.col("datasetA.user_id").alias("user_id"),
                                         F.col("datasetB.user_id").alias("user_id_sim"),
                                         F.col("EuclideanDistance"))
 
         # predict the users
-        predicted = user_query_to_predict.join(calculated_similar_user, 'user_id')\
-                                     .join(calculated_similar_item, 'query_id')\
-                                     .cache()
+        predicted = user_query_to_predict.join(calculated_similar_user, 'user_id') \
+            .join(calculated_similar_item, 'query_id') \
+            .cache()
 
+        # Predict the ratings as the average of the rating expressed by similar users and similar items
+        # combining the results obtained via content-based and collaborative filtering techniques
         predicted = predicted.join(user_query_rated,
-                                   (predicted["user_id_sim"]  == user_query_rated["user_id"]) &
+                                   (predicted["user_id_sim"] == user_query_rated["user_id"]) &
                                    (predicted["query_id_sim"] == user_query_rated["query_id"])
-                                   )\
-                             .select(predicted["user_id"], predicted["query_id"], F.col("rating"))\
-                             .groupBy(F.col("query_id"), F.col("user_id"))\
-                             .agg(F.avg(F.col("rating")).alias("predicted_rating"))
-
+                                   ) \
+            .select(predicted["user_id"], predicted["query_id"], F.col("rating")) \
+            .groupBy(F.col("query_id"), F.col("user_id")) \
+            .agg(F.avg(F.col("rating")).alias("predicted_rating"))
 
         # merge the predicted rating to the utility matrix
         query_id_list = set(ut.columns) - {"user_id"}
@@ -118,9 +117,15 @@ def query_recommendation():
         new_ut = new_ut.alias("new_ut")
 
         ut = ut.join(new_ut, "user_id", how='left')
+
+        #  partitioning returns a new DataFrame partitioned by the given partitioning expressions.
+        #  It is a way to split the data into multiple partitions in order to execute transformations
+        #  on multiple partitions in parallel completing the job faster.
         ut = ut.repartition(20)
 
-        ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+        ut = ut.select(
+            [F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut." + x), F.col("new_ut." + x))).alias(x) for
+                                                      x in query_id_list])
 
         # remove the predicted values from the user_query_to_predict dataframe
         user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
@@ -129,21 +134,20 @@ def query_recommendation():
 
         maxloop -= 1
 
-
     # predict the remaining user_query_to_predict with the mean of the corrispettive user rating
-    user_rating_mean = user_query_rated.groupBy(F.col("user_id")).agg(F.avg(F.col("rating")).alias("predicted_rating")).drop("query_id")
+    user_rating_mean = user_query_rated.groupBy(F.col("user_id")).agg(
+        F.avg(F.col("rating")).alias("predicted_rating")).drop("query_id")
 
     predicted = user_query_to_predict.join(user_rating_mean,
-                                                      "user_id",
-                                                      "left"
-                                                      ).select(
-                                                          user_query_to_predict["user_id"].alias("user_id"),
-                                                          user_query_to_predict["query_id"].alias("query_id"),
-                                                          user_rating_mean["predicted_rating"].alias("predicted_rating")
-                                                      )
+                                           "user_id",
+                                           "left"
+                                           ).select(
+        user_query_to_predict["user_id"].alias("user_id"),
+        user_query_to_predict["query_id"].alias("query_id"),
+        user_rating_mean["predicted_rating"].alias("predicted_rating")
+    )
     ## or user a default value
     # # predicted = user_query_to_predict.withColumn("predicted_rating", F.lit("75"))
-
 
     # merge the last predicted rating to the utility matrix
     query_id_list = set(ut.columns) - {"user_id"}
@@ -156,17 +160,17 @@ def query_recommendation():
     ut = ut.join(new_ut, "user_id", how='left')
     ut = ut.repartition(20)
 
-    ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+    ut = ut.select(
+        [F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut." + x), F.col("new_ut." + x))).alias(x) for x in
+                                                  query_id_list])
 
-
-    # write to a single file the fullfilled utility_matrix
-    with open(data_path + 'utility_matrix_filled_ALS.csv', 'w') as f_out:
+    # write to a single file the fulfilled utility_matrix
+    with open(data_path + 'utility_matrix_filled.csv', 'w') as f_out:
         writer = csv.writer(f_out, delimiter=',')
         writer.writerow(ut.columns)
 
         for row in ut.rdd.toLocalIterator():
             writer.writerow(row)
-
 
     # End spark session
     end_session(sc)
