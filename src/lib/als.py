@@ -48,8 +48,9 @@ def als():
                                                  .select(user_query_to_predict["user_id"],
                                                          user_query_to_predict["query_id"],
                                                          "user_id_index",
-                                                         "query_id_index")\
-                                                 .cache()
+                                                         "query_id_index")
+
+    user_query_to_predict = user_query_to_predict.repartition(8).cache()
 
 
     def fun2(x):
@@ -99,14 +100,40 @@ def als():
 
     predictions = sorted(model.transform(user_query_to_predict).collect(), key=lambda r: r[0])
 
-    predictions_df = sc.createDataFrame(predictions)
-    predictions_df.printSchema()
-    predictions_df.count()
-
-    predictions_df.write.options(header='True', delimiter=',') \
-                   .csv(data_path + "predicted_ALS")
+    predicted = sc.createDataFrame(predictions)
 
 
+    # predicted_df.write.options(header='True', delimiter=',') \
+    #                .csv(data_path + "predicted_ALS")
+
+
+    ## procedure to merge the utility_matrix with the predicted values
+    predicted = predicted.drop("user_id_index", "query_id_index").withColumnRenamed("prediction", "predicted_rating")
+
+    new_ut = predicted.groupBy(F.col("user_id")).pivot("query_id").avg("predicted_rating")
+
+    new_ut = new_ut.repartition(8)
+
+    query_id_list = list(set(ut.columns) - {"user_id"})
+
+    ut = ut.alias("ut")
+    new_ut = new_ut.alias("new_ut")
+
+    ut = ut.join(new_ut, "user_id", how='left')
+    ut = ut.repartition(20)
+
+    # ut.printSchema()
+
+    ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+
+    # user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
+
+    with open(data_path + 'utility_matrix_filled_ALS.csv', 'w') as f_out:
+        writer = csv.writer(f_out, delimiter=',')
+        writer.writerow(ut.columns)
+
+        for row in ut.rdd.toLocalIterator():
+            writer.writerow(row)
 
     end_session(sc)
 
