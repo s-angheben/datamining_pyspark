@@ -16,6 +16,7 @@ if __name__ == "__main__":
     user_set = load_user_set(sc)
     us = user_set.toPandas()
     counter = 0
+    num_of_steps = 30
     for index, row in us.iterrows():
         user_id = row[0]
 
@@ -26,8 +27,7 @@ if __name__ == "__main__":
         print(sim_users.where(F.col('user_id') != user_id).show())
 
         counter += 1
-
-        if counter == 30:
+        if counter == num_of_steps:
             break
 
     # Terminate spark session
