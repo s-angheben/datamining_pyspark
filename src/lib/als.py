@@ -14,18 +14,8 @@ def als():
     utility_matrix = load_utility_matrix(sc)
     masked_ut, test_user_ids, test_query_ids = mask_utility_matrix(utility_matrix, 30, 100)
 
-    # with open(data_path + 'utility_matrix_masked.csv', 'w') as f_out:
-    #     writer = csv.writer(f_out, delimiter=',')
-    #     writer.writerow(masked_ut.columns)
-
-    #     for row in masked_ut.rdd.toLocalIterator():
-    #         writer.writerow(row)
-
-    # with open(data_path + 'user_ids_masked.csv', 'w') as f_out:
-    #     f_out.writelines('\n'.join(test_user_ids))
-
-    # with open(data_path + 'query_ids_masked.csv', 'w') as f_out:
-    #     f_out.writelines('\n'.join(test_query_ids))
+    # Store to file system
+    save_masked_utility_matrix(masked_ut, test_user_ids, test_query_ids)
 
     ut = masked_ut.repartition(8)
 

@@ -48,6 +48,7 @@ def load_user_set(sc, fname='user_set.csv'):
         .text(data_path + fname)
     return user_set
 
+
 def load_utility_matrix(sc, fname="utility_matrix.csv"):
     utility_matrix = sc.read.option("header", True) \
         .csv(data_path + fname)
@@ -198,6 +199,28 @@ def save_result_set_dataframe(sc, query_set, fname="result_set.csv"):
             query_result_set_list = query_result_set.select('index').rdd.flatMap(lambda x: x).collect()
             line = (q.query_id, query_result_set_list)
             writer.writerow(line)
+
+
+def save_masked_utility_matrix(masked_ut=None, uids=None, qids=None):
+    """
+    Store the masked utility matrix, together with the list of the user ids
+    and the query ids in the file system
+    :param masked_ut:
+    :param uids:
+    :param qids:
+    """
+    with open(data_path + 'utility_matrix_masked.csv', 'w') as f_out:
+        writer = csv.writer(f_out, delimiter=',')
+        writer.writerow(masked_ut.columns)
+    
+        for row in masked_ut.rdd.toLocalIterator():
+            writer.writerow(row)
+    
+    with open(data_path + 'user_ids_masked.csv', 'w') as f_out:
+        f_out.writelines('\n'.join(uids))
+    
+    with open(data_path + 'query_ids_masked.csv', 'w') as f_out:
+        f_out.writelines('\n'.join(qids))
 
 
 def test():
