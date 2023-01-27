@@ -54,7 +54,7 @@ def load_utility_matrix(sc, fname="utility_matrix.csv"):
         .csv(data_path + fname)
     return utility_matrix
 
-def load_utility_matrix_masked(sc, fname="utility_matrix_masked.csv"):
+def load_query_user_masked(sc, fname="query_user_masked.csv"):
     utility_matrix = sc.read.option("header", True) \
         .csv(data_path + fname)
     return utility_matrix
@@ -204,6 +204,14 @@ def save_result_set_dataframe(sc, query_set, fname="result_set.csv"):
             query_result_set_list = query_result_set.select('index').rdd.flatMap(lambda x: x).collect()
             line = (q.query_id, query_result_set_list)
             writer.writerow(line)
+
+def save_random_query_user(df):
+    with open(data_path + 'query_user_masked.csv', 'w') as f_out:
+        writer = csv.writer(f_out, delimiter=',')
+        writer.writerow(df.columns)
+
+        for row in df.rdd.toLocalIterator():
+            writer.writerow(row)
 
 
 def save_masked_utility_matrix(masked_ut=None, uids=None, qids=None):

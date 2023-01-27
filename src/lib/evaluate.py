@@ -34,28 +34,10 @@ def get_true_query_rating(sc, queryRow, user_id, relational_table, top_reviews):
     return true_rating
 
 
-def compute_rmse(ut1, ut2):
-    rmse = 0
-    count = 0
 
-    query_ids = ut1.columns
-    query_ids.remove('user_id')
-
-    # Iterate over all the rows in the first Utility Matrix
-    for row in ut1.collect():
-
-        uid = row.user_id
-
-        # Iterate over all the queries ids
-        for c in query_ids:
-            r1 = row[c]
-            if r1 is not None:
-                count += 1
-                r2 = ut2.filter(F.col('user_id') == uid).select(F.col(c)).collect()[0][0]
-                if r2 is not None:
-                    rmse += math.pow((float(r2) - float(r1)), 2)
-
-    return math.sqrt(rmse / count)
+def select_random_query_user(df, n):
+    df = df.orderBy(F.rand()).limit(n).select("query_id", "user_id")
+    return df
 
 
 ## calculate the true_query_rating on a query and user for which we already
@@ -79,19 +61,49 @@ def check_consistency_rating(sc, ut, rt, tr):
 
 def test():
     sc = init_spark("evaluation")
-    # rt = load_relational_table(sc)
-    # tr = load_top_reviews_full_matrix(sc)
-    # ut = load_utility_matrix(sc)
-    # rt.createOrReplaceTempView("items")
+    ut = load_utility_matrix(sc)
+    ut.createOrReplaceTempView("utility_matrix")
 
-    # # bu.printSchema()
+    relational_table = load_relational_table(sc)
+    relational_table.createOrReplaceTempView("items")
 
-    # print(check_consistency_rating(sc, ut, rt, tr))
+    query_set = load_query_set(sc)
+    query_set = query_set.withColumn("query_id_index", F.monotonically_increasing_id())
 
-    df = sc.read.option("header",True).options(inferSchema='True',delimiter=',').csv(data_path + "predicted_3")
-    df.printSchema()
-    print(df.count())
+    user_set = load_user_set(sc)
+    user_set = user_set.select(F.col("id").alias("user_id")).withColumn("user_id_index", F.monotonically_increasing_id())
 
+
+    query_id_list = set(ut.columns) - {"user_id"}
+    b_query_id_list = sc.sparkContext.broadcast(query_id_list)
+
+
+    def fun2(x):
+        out_put_list = []
+        for q in b_query_id_list.value:
+            if x[q] != None:
+                out_put_list.append({
+                    "user_id" : x["user_id"],
+                    "query_id": q,
+                    "rating"  : float(x[q])
+                })
+        return out_put_list
+
+    user_query_rated_rdd = ut.rdd.flatMap(lambda x: fun2(x))
+    user_query_rated = sc.createDataFrame(user_query_rated_rdd)
+
+    user_query_rated = user_query_rated.join(user_set,  "user_id")\
+                                       .join(query_set, "query_id")\
+                                       .select(user_query_rated["user_id"],
+                                               user_query_rated["query_id"],
+                                               "user_id_index",
+                                               "query_id_index",
+                                               "rating")\
+                                       .cache()
+
+    #print(user_query_rated.count()) ## 113981
+    df = select_random_query_user(user_query_rated, 10000)
+    save_random_query_user(df)
 
 if __name__ == "__main__":
     test()
