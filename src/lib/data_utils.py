@@ -24,12 +24,29 @@ def load_relational_table(sc, fname='relational_table.csv'):
     return relational_table
 
 
+def load_query_ids_masked(fname='query_ids_masked.csv'):
+    query_ids_masked = []
+    with open(data_path + fname, 'r') as fin_:
+        for r in fin_.read().splitlines():
+            query_ids_masked.append(r)
+
+    return query_ids_masked
+
+
+def load_user_ids_masked(fname='user_ids_masked.csv'):
+    user_ids_masked = []
+    with open(data_path + fname, 'r') as fin_:
+        for r in fin_.read().splitlines():
+            user_ids_masked.append(r)
+
+    return user_ids_masked
+
+
 def load_user_set(sc, fname='user_set.csv'):
     user_set = sc.read.option('lineSep', "\n") \
         .schema('id STRING') \
         .text(data_path + fname)
     return user_set
-
 
 def load_utility_matrix(sc, fname="utility_matrix.csv"):
     utility_matrix = sc.read.option("header", True) \
@@ -184,19 +201,22 @@ def save_result_set_dataframe(sc, query_set, fname="result_set.csv"):
 
 
 def test():
-    sc = init_spark("data_utils")
-    utility_matrix = load_utility_matrix(sc)
-    user_set = load_user_set(sc)
-    relational_table = load_relational_table(sc)
-    query_set = load_query_set(sc)
-    relational_table.createOrReplaceTempView("items")
+    # sc = init_spark("data_utils")
+    # utility_matrix = load_utility_matrix(sc)
+    # user_set = load_user_set(sc)
+    # relational_table = load_relational_table(sc)
+    # query_set = load_query_set(sc)
+    # relational_table.createOrReplaceTempView("items")
 
     ## example query
-    query1 = query_set.first()
-    rs = get_query_result_set_index(sc, query1, relational_table)
-    print(type(rs.collect()))
-    print(rs.count())
-    rs.show()
+    # query1 = query_set.first()
+    # rs = get_query_result_set_index(sc, query1, relational_table)
+    # print(type(rs.collect()))
+    # print(rs.count())
+    # rs.show()
+
+    print(load_user_ids_masked())
+    print(load_query_ids_masked())
 
 
 if __name__ == "__main__":
