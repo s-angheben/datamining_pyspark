@@ -68,6 +68,55 @@ def utility_matrix_create_array(df):
     return ut
 
 
+def mask_utility_matrix(ut, num_users=50, num_queries=50):
+    """
+    Mask the utility matrix by updating the ratings for a range of users and queries,
+    determined randomly, in order to predict those values and then perform RMSE by comparing the real ratings
+    with the predicted ones
+    :param ut: the original utility matrix
+    :param num_users: number of users to be included in the masking
+    :param num_queries: number of queries to be included in the masking
+    :return: the transformed utility matrix, the user and query ids masked
+    """
+    import random
+
+    start_user = random.randint(0, (ut.count() - num_users - 1))
+    end_user = start_user + num_users - 1
+    start_query = random.randint(1, len(ut.columns) - num_queries)
+    end_query = start_query + num_queries
+
+    # new dataframe derived from previous by adding an index column
+    masked_ut = ut.withColumn('index', F.monotonically_increasing_id())
+
+    # List of query ids to be masked
+    queries = masked_ut.columns[start_query:end_query]
+    # print('Selected {} queries'.format(len(queries)))
+
+    user_ids = [row.user_id for row in masked_ut.where(F.col('index').between(start_user, end_user)).select(F.col('user_id')).collect()]
+
+    # print('User IDS', user_ids)
+    # print('Selected {} users'.format(len(user_ids)))
+
+    # Slice the utility matrix
+    for column_ in queries:
+        masked_ut = masked_ut.withColumn(column_, F.when(
+            F.col('index').between(start_user, end_user),
+            F.lit(None)
+        ))
+
+    # sliced_cols = ['user_id'] + queries
+    # print('ORIGINAL')
+    # print(ut.where(F.col('user_id').isin(user_ids)).select(sliced_cols).show(10))
+    # print('MASKED')
+    # print(masked_ut.where(F.col('index').between(start_user, end_user)).select(sliced_cols).show(10))
+    # print(masked_ut.where(F.col('index').between(start_user, end_user)).select(sliced_cols).show(10))
+
+    # Remove index column
+    masked_ut.drop('index')
+
+    return masked_ut, user_ids, queries
+
+
 def load_query_set(sc, fname='query_set.csv'):
     df = sc.read.option('lineSep', "\n") \
         .text(data_path + fname)

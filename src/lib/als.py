@@ -1,4 +1,5 @@
 from data_utils import *
+from src.lib.evaluate import compute_rmse
 from utils import init_spark, end_session
 from functools import reduce
 
@@ -8,14 +9,25 @@ from pyspark.ml import Pipeline
 from pyspark.ml.evaluation import RegressionEvaluator
 
 
-
-
-
 def als():
     sc = init_spark("query_recommendation")
-    ut = load_utility_matrix(sc)
+    utility_matrix = load_utility_matrix(sc)
+    masked_ut, test_user_ids, test_query_ids = mask_utility_matrix(utility_matrix, 30, 100)
 
-    ut = ut.repartition(8)
+    # with open(data_path + 'utility_matrix_masked.csv', 'w') as f_out:
+    #     writer = csv.writer(f_out, delimiter=',')
+    #     writer.writerow(masked_ut.columns)
+
+    #     for row in masked_ut.rdd.toLocalIterator():
+    #         writer.writerow(row)
+
+    # with open(data_path + 'user_ids_masked.csv', 'w') as f_out:
+    #     f_out.writelines('\n'.join(test_user_ids))
+
+    # with open(data_path + 'query_ids_masked.csv', 'w') as f_out:
+    #     f_out.writelines('\n'.join(test_query_ids))
+
+    ut = masked_ut.repartition(8)
 
     query_set = load_query_set(sc)
     query_set = query_set.withColumn("query_id_index", F.monotonically_increasing_id())
@@ -26,8 +38,6 @@ def als():
 
     query_id_list = set(ut.columns) - {"user_id"}
     b_query_id_list = sc.sparkContext.broadcast(query_id_list)
-
-
 
     def fun(x):
         out_put_list = []
@@ -51,7 +61,6 @@ def als():
                                                          "query_id_index")
 
     user_query_to_predict = user_query_to_predict.repartition(8).cache()
-
 
     def fun2(x):
         out_put_list = []
@@ -79,7 +88,6 @@ def als():
 
     (training, test) = user_query_rated.randomSplit([0.8, 0.2])
 
-
     als=ALS(maxIter=10,
         regParam=0.09,
         rank=25,
@@ -88,7 +96,6 @@ def als():
         ratingCol="rating",
         coldStartStrategy="drop",
         nonnegative=True)
-
 
     model=als.fit(training)
 
@@ -125,6 +132,15 @@ def als():
     # ut.printSchema()
 
     ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
+
+    # COMPUTE RMSE
+    sliced_cols = ['user_id'] + test_query_ids
+
+    # Compute RMSE evaluation
+    slice_ut_original = utility_matrix.where(F.col('user_id').isin(test_user_ids)).select(sliced_cols)
+    slice_ut_als = ut.where(F.col('user_id').isin(test_user_ids)).select(sliced_cols)
+    rmse_ = compute_rmse(slice_ut_original, slice_ut_als)
+    print('Computed RMSE for the ALS method is {}'.format(rmse_))
 
     # user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
 
