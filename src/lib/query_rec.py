@@ -13,15 +13,20 @@ def query_recommendation():
     ut = load_utility_matrix(sc)
     ut.createOrReplaceTempView("utility_matrix")
 
+    # Create masked utility matrix
+    # masked_ut, test_user_ids, test_query_ids = mask_utility_matrix(ut, 30, 100)
+    # Store to file system
+    # save_masked_utility_matrix(masked_ut, test_user_ids, test_query_ids)
+
+    masked_ut = load_utility_matrix(sc, "utility_matrix_masked.csv")
+    test_user_ids = load_user_ids_masked()
+    test_query_ids = load_query_ids_masked()
+
+    # TODO: user masked_ut instead of ut
+
     # Load relational table
     relational_table = load_relational_table(sc)
     relational_table.createOrReplaceTempView("items")
-
-    # Load query set
-    query_set = load_query_set(sc)
-
-    # Load user set
-    user_set = load_user_set(sc)
 
     # to calculate the result set use
     # save_result_set_dataframe(sc, query_set)
@@ -33,7 +38,6 @@ def query_recommendation():
     # item-item model
     item_size = relational_table.count()
     item_item_model, hashed_result_set = item_item_prepare_model(sc, item_size, result_set)
-
 
     calculated_similar_item = item_item_model.approxSimilarityJoin(
         hashed_result_set,
