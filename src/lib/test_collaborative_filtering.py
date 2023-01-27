@@ -1,7 +1,7 @@
 from utils import *
 
 from collaborative_filtering import approx_nearest_neighbors, prepare_model
-from src.lib.data_utils import load_utility_matrix, load_user_set
+from src.lib.data_utils import load_utility_matrix, load_user_set, mask_utility_matrix
 from utils import init_spark, end_session
 
 if __name__ == "__main__":
@@ -9,6 +9,7 @@ if __name__ == "__main__":
     sc = init_spark("collaborative-filtering")
 
     utility_matrix = load_utility_matrix(sc)
+    masked_ut = mask_utility_matrix(utility_matrix, 10, 10)
 
     model, result_set = prepare_model(utility_matrix, 0.5, 10)
     # print(result_set.head())
@@ -16,7 +17,7 @@ if __name__ == "__main__":
     user_set = load_user_set(sc)
     us = user_set.toPandas()
     counter = 0
-    num_of_steps = 30
+    num_of_steps = 1
     for index, row in us.iterrows():
         user_id = row[0]
 
