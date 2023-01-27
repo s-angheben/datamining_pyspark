@@ -108,20 +108,22 @@ def als():
     predicted = predicted.drop("user_id_index", "query_id_index").withColumnRenamed("prediction", "predicted_rating")
 
     new_ut = predicted.groupBy(F.col("user_id")).pivot("query_id").avg("predicted_rating")
-
     new_ut = new_ut.repartition(8)
-
-    query_id_list = list(set(ut.columns) - {"user_id"})
 
     ut = ut.alias("ut")
     new_ut = new_ut.alias("new_ut")
 
+    query_id_common= set(new_ut.columns) - {"user_id"}
+    query_id_other = set(ut.columns) - query_id_common - {"user_id"}
+
     ut = ut.join(new_ut, "user_id", how='left')
     ut = ut.repartition(20)
+    ut = ut.select(
+        [F.col("ut.user_id").alias("user_id")] +
+        [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_common] +
+        [F.col("ut."+x).alias(x) for x in query_id_other]
+    )
 
-    # ut.printSchema()
-
-    ut = ut.select([F.col("ut.user_id").alias("user_id")] + [(F.coalesce(F.col("ut."+x), F.col("new_ut."+x))).alias(x) for x in query_id_list])
 
     # COMPUTE RMSE
     sliced_cols = ['user_id'] + test_query_ids
