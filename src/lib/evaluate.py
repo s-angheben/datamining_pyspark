@@ -52,30 +52,8 @@ def compute_rmse(ut1, ut2):
             if r1 is not None:
                 count += 1
                 r2 = ut2.filter(F.col('user_id') == uid).select(F.col(c)).collect()[0][0]
-                rmse += math.pow((float(r2) - float(r1)), 2)
-
-    return math.sqrt(rmse / count)
-
-
-def compute_rmse(ut1, ut2):
-    rmse = 0
-    count = 0
-
-    query_ids = ut1.columns
-    query_ids.remove('user_id')
-
-    # Iterate over all the rows in the first Utility Matrix
-    for row in ut1.collect():
-
-        uid = row.user_id
-
-        # Iterate over all the queries ids
-        for c in query_ids:
-            r1 = row[c]
-            if r1 is not None:
-                count += 1
-                r2 = ut2.filter(F.col('user_id') == uid).select(F.col(c)).collect()[0][0]
-                rmse += math.pow((float(r2) - float(r1)), 2)
+                if r2 is not None:
+                    rmse += math.pow((float(r2) - float(r1)), 2)
 
     return math.sqrt(rmse / count)
 

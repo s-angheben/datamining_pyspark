@@ -11,6 +11,9 @@ def query_recommendation():
 
     # Load utility matrix
     ut = load_utility_matrix(sc)
+
+    # for evaluation
+    ut = load_utility_matrix_masked(sc)
     ut.createOrReplaceTempView("utility_matrix")
 
     # Create masked utility matrix

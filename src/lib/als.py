@@ -1,5 +1,5 @@
 from data_utils import *
-from src.lib.evaluate import compute_rmse
+from evaluate import compute_rmse
 from utils import init_spark, end_session
 from functools import reduce
 

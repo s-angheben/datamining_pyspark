@@ -54,6 +54,11 @@ def load_utility_matrix(sc, fname="utility_matrix.csv"):
         .csv(data_path + fname)
     return utility_matrix
 
+def load_utility_matrix_masked(sc, fname="utility_matrix_masked.csv"):
+    utility_matrix = sc.read.option("header", True) \
+        .csv(data_path + fname)
+    return utility_matrix
+
 
 def utility_matrix_create_array(df):
     ut = df.select(F.col("user_id"), F.array([c for c in df.columns if c not in {'user_id'}]).alias("ratings"))
@@ -212,13 +217,13 @@ def save_masked_utility_matrix(masked_ut=None, uids=None, qids=None):
     with open(data_path + 'utility_matrix_masked.csv', 'w') as f_out:
         writer = csv.writer(f_out, delimiter=',')
         writer.writerow(masked_ut.columns)
-    
+
         for row in masked_ut.rdd.toLocalIterator():
             writer.writerow(row)
-    
+
     with open(data_path + 'user_ids_masked.csv', 'w') as f_out:
         f_out.writelines('\n'.join(uids))
-    
+
     with open(data_path + 'query_ids_masked.csv', 'w') as f_out:
         f_out.writelines('\n'.join(qids))
 
