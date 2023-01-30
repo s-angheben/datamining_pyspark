@@ -2,9 +2,8 @@
 ## Compare the predicted rate of a query with the "true" value
 ##
 
-from utils import *
 from data_utils import *
-import math
+
 
 def load_top_reviews_full_matrix(sc):
     business_user = sc.read.option("header", True)\
@@ -36,6 +35,7 @@ def get_true_query_rating(sc, queryRow, user_id, relational_table, top_reviews):
 
 
 def select_random_query_user(df, n):
+    print(df.show())
     df = df.orderBy(F.rand()).limit(n).select("query_id", "user_id")
     return df
 
@@ -72,11 +72,10 @@ def test():
 
     user_set = load_user_set(sc)
     user_set = user_set.select(F.col("id").alias("user_id")).withColumn("user_id_index", F.monotonically_increasing_id())
-
+    print(user_set.show(100))
 
     query_id_list = set(ut.columns) - {"user_id"}
     b_query_id_list = sc.sparkContext.broadcast(query_id_list)
-
 
     def fun2(x):
         out_put_list = []
@@ -91,6 +90,7 @@ def test():
 
     user_query_rated_rdd = ut.rdd.flatMap(lambda x: fun2(x))
     user_query_rated = sc.createDataFrame(user_query_rated_rdd)
+    print(user_query_rated.show())
 
     user_query_rated = user_query_rated.join(user_set,  "user_id")\
                                        .join(query_set, "query_id")\
@@ -101,7 +101,8 @@ def test():
                                                "rating")\
                                        .cache()
 
-    #print(user_query_rated.count()) ## 113981
+    # print(user_query_rated.show())
+    # print(user_query_rated.count()) ## 113981
     df = select_random_query_user(user_query_rated, 10000)
     save_random_query_user(df)
 

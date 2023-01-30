@@ -365,6 +365,15 @@ def query_recommendation_evaluate():
 
     evaluator=RegressionEvaluator(metricName="rmse",labelCol="rating",predictionCol="prediction")
     rmse=evaluator.evaluate(masked_predicted)
+
+    #rmse = masked_predicted.select(
+    #    F.sqrt(
+    #        F.avg(
+    #            F.pow(F.col('prediction') - F.col('rating'), 2)
+    #        )
+    #    )
+    #).collect()[0][0]
+
     print("masked RMSE="+str(rmse))
     # masked RMSE=8.992067447302036 first run  J=0.2, E=50,100,150
     #                               second run J=0.4, E=50,150

@@ -1,9 +1,6 @@
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import HashingTF, MinHashLSH
+from pyspark.ml.feature import MinHashLSH
 from pyspark.ml.linalg import Vectors, VectorUDT
 
-
-from utils import *
 from data_utils import *
 
 # https://spark.apache.org/docs/2.2.3/ml-features.html#minhash-for-jaccard-distance
@@ -55,8 +52,6 @@ def test():
     print(db_matches.first())
     # result = model.approxNearestNeighbors(rs, q1, 2).collect()
     # print(result)
-
-
 
 
 if __name__ == "__main__":

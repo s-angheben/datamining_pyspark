@@ -1,6 +1,6 @@
 from pyspark.ml.feature import BucketedRandomProjectionLSH
 from pyspark.ml.linalg import Vectors, VectorUDT
-from data_utils import *
+from src.data_utils import *
 
 
 def approx_nearest_neighbors(model, rs, key, num=20):

@@ -1,7 +1,5 @@
-from data_utils import *
 from evaluate import *
-from utils import init_spark, end_session
-
+from src.utils import init_spark, end_session
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.evaluation import RegressionEvaluator
 
@@ -97,8 +95,8 @@ def als_evaluate(spark_context, utility_matrix=None):
 
     # Alternating Least Squares (ALS) matrix factorization.
     als = ALS(maxIter=10,
-              regParam=0.09,
-              rank=25,
+              regParam=0.15,
+              rank=50,
               userCol="user_id_index",
               itemCol="query_id_index",
               ratingCol="rating",

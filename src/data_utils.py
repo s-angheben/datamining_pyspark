@@ -1,4 +1,5 @@
 from utils import *
+
 import re
 import csv
 
@@ -53,6 +54,7 @@ def load_utility_matrix(sc, fname="utility_matrix.csv"):
     utility_matrix = sc.read.option("header", True) \
         .csv(data_path + fname)
     return utility_matrix
+
 
 def load_query_user_masked(sc, fname="query_user_masked.csv"):
     utility_matrix = sc.read.option("header", True) \
@@ -115,7 +117,8 @@ def mask_utility_matrix(ut, num_users=50, num_queries=50):
     queries = masked_ut.columns[start_query:end_query]
     # print('Selected {} queries'.format(len(queries)))
 
-    user_ids = [row.user_id for row in masked_ut.where(F.col('index').between(start_user, end_user)).select(F.col('user_id')).collect()]
+    user_ids = [row.user_id for row in
+                masked_ut.where(F.col('index').between(start_user, end_user)).select(F.col('user_id')).collect()]
 
     # print('User IDS', user_ids)
     # print('Selected {} users'.format(len(user_ids)))
@@ -204,6 +207,7 @@ def save_result_set_dataframe(sc, query_set, fname="result_set.csv"):
             query_result_set_list = query_result_set.select('index').rdd.flatMap(lambda x: x).collect()
             line = (q.query_id, query_result_set_list)
             writer.writerow(line)
+
 
 def save_random_query_user(df):
     with open(data_path + 'query_user_masked.csv', 'w') as f_out:

@@ -1,12 +1,10 @@
-import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.context import SparkContext
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
 from pyspark.sql import Row
 
-data_path = "../../data/"
-
+data_path = "../data/"
 
 def init_spark(name):
     sc = SparkSession.builder.appName(name) \
