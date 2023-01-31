@@ -6,7 +6,28 @@ from functools import reduce
 from pyspark.ml.evaluation import RegressionEvaluator
 
 
+def init():
+    print("Saving result set data")
+    sc = init_spark("query_recommendation")
+
+    # Load utility matrix
+    ut = load_utility_matrix(sc)
+
+    ut.createOrReplaceTempView("utility_matrix")
+
+    # Load relational table
+    relational_table = load_relational_table(sc)
+    relational_table.createOrReplaceTempView("items")
+
+    # to calculate the result set use
+    save_result_set_dataframe(sc, query_set)
+
+    end_session(sc)
+
+
 def query_recommendation():
+    print("Running query_rec algorithm")
+
     # Init spark session
     sc = init_spark("query_recommendation")
 
@@ -187,6 +208,8 @@ def query_recommendation():
 
 
 def query_recommendation_evaluate():
+    print("Running query_rec evaluation")
+
     # Init spark session
     sc = init_spark("query_recommendation")
 
@@ -375,13 +398,13 @@ def query_recommendation_evaluate():
     #).collect()[0][0]
 
     print("masked RMSE="+str(rmse))
-    # masked RMSE=8.992067447302036 first run  J=0.2, E=50,100,150
-    #                               second run J=0.4, E=50,150
-
+    # masked RMSE=8.99 first run  J=0.2, E=50,100,150
+    # masked RMSE=8.45 second run J=0.4, E=50,150
 
 
     # End spark session
     end_session(sc)
 
 if __name__ == "__main__":
-    query_recommendation_evaluate()
+    globals()[sys.argv[1]]()
+    # query_recommendation_evaluate()

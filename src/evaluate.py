@@ -59,7 +59,7 @@ def check_consistency_rating(sc, ut, rt, tr):
     return true_rating == rating
 
 
-def test():
+def prepare_evaluation_files():
     sc = init_spark("evaluation")
     ut = load_utility_matrix(sc)
     ut.createOrReplaceTempView("utility_matrix")
@@ -107,4 +107,4 @@ def test():
     save_random_query_user(df)
 
 if __name__ == "__main__":
-    test()
+    prepare_evaluation_files()
