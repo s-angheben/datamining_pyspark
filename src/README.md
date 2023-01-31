@@ -1,3 +1,7 @@
+* Dependencies:
+ - pyspark
+ - pandas
+
 * Solve the problem A (fulfill the utility_matrix)
 
     * our custom algorithm
