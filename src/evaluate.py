@@ -60,6 +60,7 @@ def check_consistency_rating(sc, ut, rt, tr):
 
 
 def prepare_evaluation_files():
+    print("preparing files for the evaluations")
     sc = init_spark("evaluation")
     ut = load_utility_matrix(sc)
     ut.createOrReplaceTempView("utility_matrix")

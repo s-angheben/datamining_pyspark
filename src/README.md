@@ -17,6 +17,10 @@
 
 * Evaluation
   * Initialize the file for the evaluation (masked utility_matrix)
+      ```
+      python evaluate.py
+      ```
+  
     * evaluate our custom algorithm
       ```
       python query\_rec.py query_recommendation_evaluate
