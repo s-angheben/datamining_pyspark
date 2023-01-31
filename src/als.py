@@ -120,17 +120,6 @@ def als():
     )
 
 
-    # COMPUTE RMSE
-    sliced_cols = ['user_id'] + test_query_ids
-
-    # Compute RMSE evaluation
-    slice_ut_original = utility_matrix.where(F.col('user_id').isin(test_user_ids)).select(sliced_cols)
-    slice_ut_als = ut.where(F.col('user_id').isin(test_user_ids)).select(sliced_cols)
-    rmse_ = compute_rmse(slice_ut_original, slice_ut_als)
-    print('Computed RMSE for the ALS method is {}'.format(rmse_))
-
-    # user_query_to_predict = user_query_to_predict.subtract(predicted.drop("predicted_rating"))
-
     with open(data_path + 'utility_matrix_filled_ALS.csv', 'w') as f_out:
         writer = csv.writer(f_out, delimiter=',')
         writer.writerow(ut.columns)
